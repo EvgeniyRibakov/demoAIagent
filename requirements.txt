@@ -1,0 +1,19 @@
+# AI Agent для Google Таблиц - Python зависимости
+google-auth==2.23.0
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+google-api-python-client==2.108.0
+openai==1.3.0
+python-dotenv==1.0.0
+pydantic==2.5.0
+requests==2.31.0
+pandas==2.1.0
+numpy==1.25.0
+
+# Development
+pytest==7.4.0
+pytest-cov==4.1.0
+black==23.11.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.7.0
