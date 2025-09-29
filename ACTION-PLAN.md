@@ -54,3 +54,5 @@ poetry run python src/ai_agent/setup/test_connections.py
 3. Automate triggers
 
 **Main issue:** Avast antivirus blocks OpenAI API
+
+

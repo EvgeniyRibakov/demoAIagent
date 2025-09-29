@@ -33,12 +33,12 @@ class GoogleAuth:
             
             # Пробуем использовать JSON файл
             if config.GOOGLE_APPLICATION_CREDENTIALS and Path(config.GOOGLE_APPLICATION_CREDENTIALS).exists():
-                print(f"🔑 Используем JSON файл: {config.GOOGLE_APPLICATION_CREDENTIALS}")
+                print(f"INFO: Используем JSON файл: {config.GOOGLE_APPLICATION_CREDENTIALS}")
                 self.credentials = Credentials.from_service_account_file(
                     config.GOOGLE_APPLICATION_CREDENTIALS, scopes=scopes
                 )
             elif config.GOOGLE_CLIENT_EMAIL and config.GOOGLE_PRIVATE_KEY:
-                print("🔑 Используем переменные окружения")
+                print("INFO: Используем переменные окружения")
                 # Создаем credentials из переменных
                 credentials_info = {
                     "type": "service_account",
@@ -54,18 +54,18 @@ class GoogleAuth:
                     credentials_info, scopes=scopes
                 )
             else:
-                print("❌ Не найдены credentials для Google API")
+                print("ERROR: Не найдены credentials для Google API")
                 return False
             
             # Создаем сервисы
             self.sheets_service = build('sheets', 'v4', credentials=self.credentials)
             self.drive_service = build('drive', 'v3', credentials=self.credentials)
             
-            print("✅ Успешная аутентификация в Google API")
+            print("SUCCESS: Успешная аутентификация в Google API")
             return True
             
         except Exception as e:
-            print(f"❌ Ошибка аутентификации: {e}")
+            print(f"ERROR: Ошибка аутентификации: {e}")
             return False
     
     def get_sheets_service(self):

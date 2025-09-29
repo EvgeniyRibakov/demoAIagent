@@ -19,7 +19,9 @@ class GoogleSheets:
     def _get_service(self):
         """Получает сервис Google Sheets"""
         if not self.service:
-            self.service = google_auth.get_sheets_service()
+            if not google_auth.authenticate():
+                return None
+            self.service = google_auth.sheets_service
         return self.service
     
     def get_spreadsheet_info(self) -> Dict[str, Any]:
@@ -36,7 +38,7 @@ class GoogleSheets:
                           for sheet in spreadsheet.get("sheets", [])]
             }
         except HttpError as e:
-            print(f"❌ Ошибка получения информации о таблице: {e}")
+            print(f"ERROR: Ошибка получения информации о таблице: {e}")
             return {}
     
     def create_sheet(self, sheet_name: str) -> bool:
@@ -63,14 +65,14 @@ class GoogleSheets:
                 body=request_body
             ).execute()
             
-            print(f"✅ Создан лист: {sheet_name}")
+            print(f"SUCCESS: Создан лист: {sheet_name}")
             return True
             
         except HttpError as e:
             if "already exists" in str(e):
-                print(f"ℹ️ Лист {sheet_name} уже существует")
+                print(f"INFO: Лист {sheet_name} уже существует")
                 return True
-            print(f"❌ Ошибка создания листа {sheet_name}: {e}")
+            print(f"ERROR: Ошибка создания листа {sheet_name}: {e}")
             return False
     
     def set_headers(self, sheet_name: str, headers: List[str]) -> bool:
@@ -89,11 +91,11 @@ class GoogleSheets:
                 body={'values': [headers]}
             ).execute()
             
-            print(f"✅ Заголовки установлены для листа: {sheet_name}")
+            print(f"SUCCESS: Заголовки установлены для листа: {sheet_name}")
             return True
             
         except HttpError as e:
-            print(f"❌ Ошибка установки заголовков: {e}")
+            print(f"ERROR: Ошибка установки заголовков: {e}")
             return False
     
     def append_rows(self, sheet_name: str, rows: List[List[Any]]) -> bool:
@@ -108,11 +110,11 @@ class GoogleSheets:
                 body={'values': rows}
             ).execute()
             
-            print(f"✅ Добавлено {len(rows)} строк в лист {sheet_name}")
+            print(f"SUCCESS: Добавлено {len(rows)} строк в лист {sheet_name}")
             return True
             
         except HttpError as e:
-            print(f"❌ Ошибка добавления строк: {e}")
+            print(f"ERROR: Ошибка добавления строк: {e}")
             return False
     
     def read_range(self, sheet_name: str, range_name: str) -> List[List[Any]]:
@@ -128,7 +130,7 @@ class GoogleSheets:
             return result.get('values', [])
             
         except HttpError as e:
-            print(f"❌ Ошибка чтения данных: {e}")
+            print(f"ERROR: Ошибка чтения данных: {e}")
             return []
     
     def setup_schema(self) -> bool:
@@ -160,11 +162,11 @@ class GoogleSheets:
                 self.create_sheet(sheet_name)
                 self.set_headers(sheet_name, headers)
             
-            print("✅ Схема листов создана")
+            print("SUCCESS: Схема листов создана")
             return True
             
         except Exception as e:
-            print(f"❌ Ошибка создания схемы: {e}")
+            print(f"ERROR: Ошибка создания схемы: {e}")
             return False
     
     def add_starter_rules(self) -> bool:
@@ -220,16 +222,16 @@ class GoogleSheets:
             # Проверяем, есть ли уже данные
             existing_data = self.read_range('Algorithm', 'A2:L1000')
             if existing_data:
-                print("ℹ️ В Algorithm уже есть данные, пропускаем добавление правил")
+                print("INFO: В Algorithm уже есть данные, пропускаем добавление правил")
                 return True
             
             # Добавляем правила
             self.append_rows('Algorithm', starter_rules)
-            print(f"✅ Добавлено {len(starter_rules)} стартовых правил")
+            print(f"SUCCESS: Добавлено {len(starter_rules)} стартовых правил")
             return True
             
         except Exception as e:
-            print(f"❌ Ошибка добавления стартовых правил: {e}")
+            print(f"ERROR: Ошибка добавления стартовых правил: {e}")
             return False
 
 

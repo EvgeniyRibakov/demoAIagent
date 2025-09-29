@@ -34,14 +34,14 @@ class LLMExtractor:
     def _setup_client(self):
         """Настраивает клиент OpenAI"""
         if not config.OPENAI_API_KEY:
-            print("❌ OPENAI_API_KEY не настроен")
+            print("ERROR: OPENAI_API_KEY не настроен")
             return
         
         try:
             self.client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
-            print("✅ OpenAI клиент настроен")
+            print("SUCCESS: OpenAI клиент настроен")
         except Exception as e:
-            print(f"❌ Ошибка настройки OpenAI: {e}")
+            print(f"ERROR: Ошибка настройки OpenAI: {e}")
     
     def _get_prompt(self, transcript: str, algorithm_preview: str = None) -> str:
         """Формирует промпт для LLM"""
@@ -98,7 +98,7 @@ class LLMExtractor:
     def extract_proposals(self, transcript: str, algorithm_preview: str = None) -> List[Proposal]:
         """Извлекает предложения из транскрипта"""
         if not self.client:
-            print("❌ OpenAI клиент не настроен")
+            print("ERROR: OpenAI клиент не настроен")
             return []
         
         try:
@@ -143,14 +143,14 @@ class LLMExtractor:
                 )
                 proposals.append(proposal)
             
-            print(f"✅ Извлечено {len(proposals)} предложений из транскрипта")
+            print(f"SUCCESS: Извлечено {len(proposals)} предложений из транскрипта")
             return proposals
             
         except json.JSONDecodeError as e:
-            print(f"❌ Ошибка парсинга JSON ответа: {e}")
+            print(f"ERROR: Ошибка парсинга JSON ответа: {e}")
             return []
         except Exception as e:
-            print(f"❌ Ошибка извлечения предложений: {e}")
+            print(f"ERROR: Ошибка извлечения предложений: {e}")
             return []
     
     def _get_current_date(self) -> str:
@@ -168,10 +168,10 @@ class LLMExtractor:
             content = transcript_info.get("content", "")
             
             if not content:
-                print(f"⚠️ Пропускаем пустой файл: {filename}")
+                print(f"WARNING: Пропускаем пустой файл: {filename}")
                 continue
             
-            print(f"🔍 Обрабатываем транскрипт: {filename}")
+            print(f"INFO: Обрабатываем транскрипт: {filename}")
             proposals = self.extract_proposals(content, algorithm_preview)
             
             # Добавляем информацию о файле к предложениям
@@ -180,7 +180,7 @@ class LLMExtractor:
             
             all_proposals.extend(proposals)
         
-        print(f"✅ Всего извлечено {len(all_proposals)} предложений из {len(transcripts)} транскриптов")
+        print(f"SUCCESS: Всего извлечено {len(all_proposals)} предложений из {len(transcripts)} транскриптов")
         return all_proposals
 
 

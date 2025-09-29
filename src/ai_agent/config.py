@@ -49,12 +49,12 @@ class Config:
         has_env_vars = cls.GOOGLE_CLIENT_EMAIL and cls.GOOGLE_PRIVATE_KEY
         
         if not has_json_file and not has_env_vars:
-            print("❌ Не настроены Google API credentials")
-            print("📝 Укажите GOOGLE_APPLICATION_CREDENTIALS или GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY в .env")
+            print("ERROR: Не настроены Google API credentials")
+            print("INFO: Укажите GOOGLE_APPLICATION_CREDENTIALS или GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY в .env")
             return False
         
         if not cls.GOOGLE_SHEETS_ID:
-            print("❌ GOOGLE_SHEETS_ID не настроен")
+            print("ERROR: GOOGLE_SHEETS_ID не настроен")
             return False
             
         return True

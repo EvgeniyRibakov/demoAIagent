@@ -15,23 +15,23 @@ from ai_agent.llm.extract import llm_extractor
 
 def main():
     """Основная функция обработки транскриптов"""
-    print("🚀 Запуск обработки транскриптов из Google Drive...\n")
+    print("INFO: Запуск обработки транскриптов из Google Drive...\n")
     
     try:
         # Проверяем конфигурацию
         if not config.validate():
-            print("❌ Неверная конфигурация. Проверьте .env файл")
+            print("ERROR: Неверная конфигурация. Проверьте .env файл")
             return False
         
         # Проверяем наличие папки Calls
         if not config.GOOGLE_DRIVE_CALLS_FOLDER_ID:
-            print("❌ GOOGLE_DRIVE_CALLS_FOLDER_ID не настроен")
-            print("📝 Создайте папку 'Calls' в Google Drive и укажите её ID в .env")
+            print("ERROR: GOOGLE_DRIVE_CALLS_FOLDER_ID не настроен")
+            print("INFO: Создайте папку 'Calls' в Google Drive и укажите её ID в .env")
             return False
         
         # Аутентификация
         if not google_auth.authenticate():
-            print("❌ Ошибка аутентификации в Google API")
+            print("ERROR: Ошибка аутентификации в Google API")
             return False
         
         # Получаем список файлов транскриптов
@@ -56,11 +56,11 @@ def main():
                 })
         
         if not transcripts_data:
-            print("⚠️ Не удалось загрузить ни одного транскрипта")
+            print("WARNING: Не удалось загрузить ни одного транскрипта")
             return False
         
         # Получаем превью алгоритма для контекста
-        print("📋 Получаем информацию об алгоритме...")
+        print("INFO: Получаем информацию об алгоритме...")
         algorithm_data = sheets.read_range("Algorithm", "A2:L1000")
         algorithm_preview = "\n".join([
             f"Правило {row[0]}: {row[2]} ({row[3]}) → {row[5]}"
@@ -68,7 +68,7 @@ def main():
         ])
         
         # Извлекаем предложения через LLM
-        print("🤖 Обрабатываем транскрипты через LLM...")
+        print("INFO: Обрабатываем транскрипты через LLM...")
         proposals = llm_extractor.extract_from_multiple_transcripts(
             transcripts_data, 
             algorithm_preview
@@ -79,7 +79,7 @@ def main():
             return True
         
         # Записываем предложения в Google Sheets
-        print("📝 Записываем предложения в лист Proposals...")
+        print("INFO: Записываем предложения в лист Proposals...")
         
         proposals_rows = []
         for proposal in proposals:
@@ -98,62 +98,62 @@ def main():
         success = sheets.append_rows("Proposals", proposals_rows)
         
         if success:
-            print(f"✅ Успешно добавлено {len(proposals)} предложений в лист Proposals")
+            print(f"SUCCESS: Успешно добавлено {len(proposals)} предложений в лист Proposals")
             
             # Показываем статистику
             new_proposals = [p for p in proposals if not p.existing_rule_matched]
             existing_proposals = [p for p in proposals if p.existing_rule_matched]
             
-            print(f"\n📊 Статистика:")
+            print(f"\nINFO: Статистика:")
             print(f"  - Новых предложений: {len(new_proposals)}")
             print(f"  - По существующим правилам: {len(existing_proposals)}")
             print(f"  - Средняя уверенность: {sum(p.confidence for p in proposals) / len(proposals):.2f}")
             
             return True
         else:
-            print("❌ Ошибка записи предложений в Google Sheets")
+            print("ERROR: Ошибка записи предложений в Google Sheets")
             return False
     
     except Exception as e:
-        print(f"❌ Критическая ошибка: {e}")
-        print(f"📋 Детали ошибки:")
+        print(f"ERROR: Критическая ошибка: {e}")
+        print(f"INFO: Детали ошибки:")
         traceback.print_exc()
         return False
 
 
 def test_connection():
     """Тестирует подключение к сервисам"""
-    print("🔍 Тестирование подключений...")
+    print("INFO: Тестирование подключений...")
     
     # Тест Google API
     if not google_auth.authenticate():
-        print("❌ Google API: Ошибка")
+        print("ERROR: Google API: Ошибка")
         return False
-    print("✅ Google API: OK")
+    print("SUCCESS: Google API: OK")
     
     # Тест Google Sheets
     info = sheets.get_spreadsheet_info()
     if info:
-        print(f"✅ Google Sheets: OK ({info['title']})")
+        print(f"SUCCESS: Google Sheets: OK ({info['title']})")
     else:
-        print("❌ Google Sheets: Ошибка")
+        print("ERROR: Google Sheets: Ошибка")
         return False
     
     # Тест Google Drive
     if config.GOOGLE_DRIVE_CALLS_FOLDER_ID:
         files = drive.list_files_in_folder(config.GOOGLE_DRIVE_CALLS_FOLDER_ID)
-        print(f"✅ Google Drive: OK ({len(files)} файлов в папке)")
+        print(f"SUCCESS: Google Drive: OK ({len(files)} файлов в папке)")
     else:
-        print("⚠️ Google Drive: Не настроен")
+        print("WARNING: Google Drive: Не настроен")
     
     # Тест OpenAI
     if llm_extractor.client:
-        print("✅ OpenAI: OK")
+        print("SUCCESS: OpenAI: OK")
     else:
-        print("❌ OpenAI: Ошибка")
+        print("ERROR: OpenAI: Ошибка")
         return False
     
-    print("🎉 Все тесты пройдены!")
+    print("SUCCESS: Все тесты пройдены!")
     return True
 
 

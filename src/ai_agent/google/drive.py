@@ -18,8 +18,32 @@ class GoogleDrive:
     def _get_service(self):
         """Получает сервис Google Drive"""
         if not self.service:
-            self.service = google_auth.get_drive_service()
+            if not google_auth.authenticate():
+                return None
+            self.service = google_auth.drive_service
         return self.service
+    
+    def get_folder_info(self, folder_id: str) -> Dict[str, Any]:
+        """Получает информацию о папке"""
+        try:
+            service = self._get_service()
+            
+            folder = service.files().get(
+                fileId=folder_id,
+                fields="id,name,mimeType,createdTime,modifiedTime"
+            ).execute()
+            
+            return {
+                'id': folder.get('id'),
+                'name': folder.get('name'),
+                'mimeType': folder.get('mimeType'),
+                'createdTime': folder.get('createdTime'),
+                'modifiedTime': folder.get('modifiedTime')
+            }
+            
+        except HttpError as e:
+            print(f"ERROR: Ошибка получения информации о папке: {e}")
+            return {}
     
     def list_files_in_folder(self, folder_id: str, file_types: List[str] = None) -> List[Dict[str, Any]]:
         """Получает список файлов в папке"""
@@ -61,7 +85,7 @@ class GoogleDrive:
             } for file in files]
             
         except HttpError as e:
-            print(f"❌ Ошибка получения списка файлов: {e}")
+            print(f"ERROR: Ошибка получения списка файлов: {e}")
             return []
     
     def download_file_content(self, file_id: str, mime_type: str = None) -> str:
@@ -82,13 +106,13 @@ class GoogleDrive:
                 return content.decode('utf-8')
                 
         except HttpError as e:
-            print(f"❌ Ошибка скачивания файла {file_id}: {e}")
+            print(f"ERROR: Ошибка скачивания файла {file_id}: {e}")
             return ""
     
     def get_transcripts_from_calls_folder(self) -> List[Dict[str, Any]]:
         """Получает транскрипты из папки Calls"""
         if not config.GOOGLE_DRIVE_CALLS_FOLDER_ID:
-            print("❌ GOOGLE_DRIVE_CALLS_FOLDER_ID не настроен")
+            print("ERROR: GOOGLE_DRIVE_CALLS_FOLDER_ID не настроен")
             return []
         
         # Получаем файлы транскриптов
@@ -127,13 +151,13 @@ class GoogleDrive:
         )
         
         if not content:
-            print(f"⚠️ Пустой файл: {file_info['name']}")
+            print(f"WARNING: Пустой файл: {file_info['name']}")
             return ""
         
         # Очищаем текст от лишних символов
         content = content.strip()
         
-        print(f"✅ Загружено {len(content)} символов из {file_info['name']}")
+        print(f"SUCCESS: Загружено {len(content)} символов из {file_info['name']}")
         return content
 
 
