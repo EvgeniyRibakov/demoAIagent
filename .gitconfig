@@ -1,0 +1,35 @@
+[user]
+    name = EvgeniyRibakov
+    email = evgenijrybakov01@gmail.com
+
+[alias]
+    co = checkout
+    br = branch
+    ci = commit
+    st = status
+    last = log -1 HEAD
+
+[color]
+    ui = auto
+
+[core]
+    editor = code --wait
+    excludesfile = ~/.gitignore_global
+
+[push]
+    default = simple
+
+[merge]
+    conflictstyle = diff3
+
+[diff]
+    tool = vscode
+
+[difftool]
+    prompt = false
+
+[mergetool]
+    keepBackup = false
+
+[include]
+    path = ~/.gitconfig_local
