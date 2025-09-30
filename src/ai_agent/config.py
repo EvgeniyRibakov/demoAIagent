@@ -65,19 +65,18 @@ class Config:
         else:
             self.GOOGLE_APPLICATION_CREDENTIALS = self._GOOGLE_CREDENTIALS_PATH
     
-    @classmethod
-    def validate(cls) -> bool:
+    def validate(self) -> bool:
         """Проверяет корректность конфигурации"""
         # Проверяем наличие JSON файла или переменных
-        has_json_file = cls.GOOGLE_APPLICATION_CREDENTIALS and Path(cls.GOOGLE_APPLICATION_CREDENTIALS).exists()
-        has_env_vars = cls.GOOGLE_CLIENT_EMAIL and cls.GOOGLE_PRIVATE_KEY
+        has_json_file = self.GOOGLE_APPLICATION_CREDENTIALS and Path(self.GOOGLE_APPLICATION_CREDENTIALS).exists()
+        has_env_vars = self.GOOGLE_CLIENT_EMAIL and self.GOOGLE_PRIVATE_KEY
         
         if not has_json_file and not has_env_vars:
             print("ERROR: Не настроены Google API credentials")
             print("INFO: Укажите GOOGLE_APPLICATION_CREDENTIALS или GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY в .env")
             return False
         
-        if not cls.GOOGLE_SHEETS_ID:
+        if not self.GOOGLE_SHEETS_ID:
             print("ERROR: GOOGLE_SHEETS_ID не настроен")
             return False
             
