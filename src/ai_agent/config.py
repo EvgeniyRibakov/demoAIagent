@@ -18,7 +18,23 @@ class Config:
     SRC_DIR: Path = BASE_DIR / "src"
     
     # Google API - сначала пробуем JSON файл, потом переменные окружения
-    GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+    _GOOGLE_CREDENTIALS_PATH: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
+    
+    # Автоматически ищем JSON файл в корне проекта, если не указан путь
+    @classmethod
+    def _get_google_credentials_path(cls) -> str:
+        if cls._GOOGLE_CREDENTIALS_PATH:
+            return cls._GOOGLE_CREDENTIALS_PATH
+        
+        # Ищем JSON файлы в корне проекта
+        json_files = list(cls.BASE_DIR.glob("*.json"))
+        for json_file in json_files:
+            if "ai-agent" in json_file.name.lower() or "service" in json_file.name.lower():
+                return str(json_file)
+        
+        return ""
+    
+    GOOGLE_APPLICATION_CREDENTIALS: str = ""
     GOOGLE_PROJECT_ID: str = os.getenv("GOOGLE_PROJECT_ID", "ai-agent-sheets-473515")
     GOOGLE_CLIENT_EMAIL: str = os.getenv("GOOGLE_CLIENT_EMAIL", "ai-agent-sheets@ai-agent-sheets-473515.iam.gserviceaccount.com")
     GOOGLE_PRIVATE_KEY: str = os.getenv("GOOGLE_PRIVATE_KEY", "").replace("\\n", "\n")
@@ -40,6 +56,14 @@ class Config:
         "medium": "#fff3e0", 
         "low": "#e8f5e8"
     }
+    
+    def __init__(self):
+        """Инициализация конфигурации с автоматическим поиском JSON файлов"""
+        # Инициализируем путь к Google credentials
+        if not self._GOOGLE_CREDENTIALS_PATH:
+            self.GOOGLE_APPLICATION_CREDENTIALS = self._get_google_credentials_path()
+        else:
+            self.GOOGLE_APPLICATION_CREDENTIALS = self._GOOGLE_CREDENTIALS_PATH
     
     @classmethod
     def validate(cls) -> bool:
