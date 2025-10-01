@@ -31,6 +31,7 @@ class GoogleMCPServer:
             "google_drive_list": self.list_drive_files,
             "google_sheets_info": self.get_sheets_info,
             "google_sheets_scan_signals": self.scan_signals,
+            "google_sheets_analyze_daily": self.analyze_daily_changes,
         }
     
     async def read_sheets(self, sheet_name: str, range_name: str) -> Dict[str, Any]:
@@ -128,6 +129,38 @@ class GoogleMCPServer:
             return {
                 "success": False,
                 "error": str(e)
+            }
+    
+    async def analyze_daily_changes(self) -> Dict[str, Any]:
+        """Анализирует ежедневные изменения (сегодня vs вчера)"""
+        try:
+            # Импортируем анализатор
+            from src.ai_agent.jobs.august_daily_analyzer import AugustDailyAnalyzer
+            
+            analyzer = AugustDailyAnalyzer()
+            result = analyzer.analyze_daily_changes()
+            
+            if not result['success']:
+                return result
+            
+            # Генерируем отчет
+            report = analyzer.generate_markdown_report()
+            report_path = analyzer.save_report(report)
+            
+            return {
+                "success": True,
+                "anomalies_found": len(analyzer.anomalies),
+                "anomalies": analyzer.anomalies,
+                "report": report,
+                "report_path": report_path,
+                "message": f"Найдено отклонений: {len(analyzer.anomalies)}"
+            }
+        except Exception as e:
+            import traceback
+            return {
+                "success": False,
+                "error": str(e),
+                "traceback": traceback.format_exc()
             }
     
     async def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
