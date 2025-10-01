@@ -316,7 +316,7 @@ class AugustDailyAnalyzer:
             
             for anomaly in self.anomalies:
                 row = anomaly['row']
-                col = anomaly['col_today']
+                col = anomaly['col_today'] + 1  # +1 для корректного индекса в Google Sheets (с 1, а не с 0)
                 category = anomaly['category']
                 background_color = color_mappings.get(category, color_mappings['normal'])
                 
@@ -444,15 +444,15 @@ class AugustDailyAnalyzer:
         print("\nINFO: Коммит и пуш в GitHub...")
         
         try:
-            # Получаем текущую дату для коммита
-            today = datetime.now().strftime('%Y-%m-%d')
+            # Используем дату из таблицы (которую проверяли), а не сегодняшнюю
+            analyzed_date = self.today_date_str if self.today_date_str else datetime.now().strftime('%d.%m')
             
             # Git add
             subprocess.run(['git', 'add', '.'], check=True, capture_output=True)
             print("  [OK] git add .")
             
-            # Git commit
-            commit_message = f"Daily report: {today} - {len(self.anomalies)} anomalies found"
+            # Git commit с датой анализируемых данных
+            commit_message = f"Daily report: {analyzed_date} - {len(self.anomalies)} anomalies found"
             subprocess.run(['git', 'commit', '-m', commit_message], check=True, capture_output=True)
             print(f"  [OK] git commit -m '{commit_message}'")
             
