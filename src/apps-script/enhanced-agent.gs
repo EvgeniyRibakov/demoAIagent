@@ -5,31 +5,49 @@
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('🤖 AI Agent')
+  ui.createMenu('🤖 AI Агент')
     .addItem('🔧 Настройка схемы', 'setupSchema')
     .addItem('📊 Сканировать сигналы', 'scanSignals')
     .addItem('📋 Панель управления', 'showSidebar')
-    .addItem('⚙️ Добавить стартовые правила', 'addStarterRules')
-    .addItem('🔄 Настроить триггеры', 'setupTriggers')
+    .addItem('⚙️ Добавить правила', 'addStarterRules')
+    .addItem('🔄 Настроить расписание', 'setupTriggers')
+    .addItem('📈 Саммари изменений', 'generateSummary')
     .addToUi();
 }
 
 // ========== КОНФИГУРАЦИЯ ==========
 const CONFIG = {
-  dataSheetNames: ['ШАБЛОН С ФОРМУЛАМИСентябрь 2025'],
+  // Автоматическое определение листов с данными по названию
+  dataSheetPattern: /^(январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь)\s+\d{4}$/i,
   headerRow: 1,
-  metricNameCol: 2, // колонка B
-  dateStartCol: 3,  // колонка C
+  metricNameCol: 1, // колонка A
+  dateStartCol: 3,  // колонка C (данные начинаются с C)
   rollingWindowDays: 7,
   minSamplesDefault: 5,
   highlight: { 
     bg: '#fff3cd', 
-    notePrefix: '🤖 Агент: ',
+    notePrefix: 'AI Агент: ',
     high: '#ffebee',
     medium: '#fff3e0',
     low: '#e8f5e8'
   }
 };
+
+// ========== АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ ЛИСТОВ ==========
+function findDataSheets() {
+  const ss = SpreadsheetApp.getActive();
+  const sheets = ss.getSheets();
+  const dataSheets = [];
+  
+  sheets.forEach(sheet => {
+    const sheetName = sheet.getName();
+    if (CONFIG.dataSheetPattern.test(sheetName)) {
+      dataSheets.push(sheetName);
+    }
+  });
+  
+  return dataSheets;
+}
 
 // ========== НАСТРОЙКА СХЕМЫ ==========
 function setupSchema() {
@@ -37,15 +55,19 @@ function setupSchema() {
   
   // Создаем/проверяем листы
   ensureSheetWithHeader(ss, 'Algorithm', [
-    'RuleId','Block','Metric','ConditionType','ConditionParams','ActionType','ActionParams','Severity','AutoApply','Active','CreatedAt','Notes'
+    'RuleId', 'Block', 'Metric', 'ConditionType', 'ConditionParams', 'ActionType', 'ActionParams', 'Severity', 'AutoApply', 'Active', 'CreatedAt', 'Notes'
   ]);
   
   ensureSheetWithHeader(ss, 'Signals', [
-    'Timestamp','Block','Metric','Date','CurrentValue','BaselineValue','DeltaPct','RuleId','Status','LinkToCell','Severity'
+    'Timestamp', 'Block', 'Metric', 'Date', 'CurrentValue', 'BaselineValue', 'DeltaPct', 'RuleId', 'Status', 'LinkToCell', 'Severity'
   ]);
   
   ensureSheetWithHeader(ss, 'Decisions', [
-    'SignalId','SuggestedActionType','ActionParams','Rationale','Status','ApprovedBy','AppliedAt','AuditLog','Confidence'
+    'SignalId', 'SuggestedActionType', 'ActionParams', 'Rationale', 'Status', 'ApprovedBy', 'AppliedAt', 'AuditLog', 'Confidence'
+  ]);
+  
+  ensureSheetWithHeader(ss, 'Изменения', [
+    'Timestamp', 'Action', 'Description', 'Result', 'User', 'Status'
   ]);
   
   ensureSheetWithHeader(ss, 'Proposals', [
@@ -97,22 +119,31 @@ function scanSignals() {
   const algorithmSheet = ss.getSheetByName('Algorithm');
   const signalsSheet = ss.getSheetByName('Signals');
   const decisionsSheet = ss.getSheetByName('Decisions');
+  const changesSheet = ss.getSheetByName('Изменения');
   
   if (!algorithmSheet || !signalsSheet || !decisionsSheet) {
-    SpreadsheetApp.getUi().alert('❌ Сначала создайте схему (Настройка схемы)');
+    SpreadsheetApp.getUi().alert('Ошибка: Сначала создайте схему (Настройка схемы)');
     return;
   }
   
   const algorithm = readAlgorithm(algorithmSheet);
   if (algorithm.length === 0) {
-    SpreadsheetApp.getUi().alert('❌ Нет активных правил в листе Algorithm');
+    SpreadsheetApp.getUi().alert('Ошибка: Нет активных правил в листе Algorithm');
+    return;
+  }
+  
+  // Находим листы с данными автоматически
+  const dataSheets = findDataSheets();
+  if (dataSheets.length === 0) {
+    SpreadsheetApp.getUi().alert('Ошибка: Не найдены листы с данными (формат: "Месяц Год")');
     return;
   }
   
   const nowIso = new Date().toISOString();
   let signalsCount = 0;
+  let totalSignals = [];
   
-  CONFIG.dataSheetNames.forEach(name => {
+  dataSheets.forEach(name => {
     const sheet = ss.getSheetByName(name);
     if (!sheet) return;
     
@@ -173,10 +204,35 @@ function scanSignals() {
       // Подсвечиваем ячейку
       highlightCellWithNote_(sheet, r, lastDateCol, rule, rationale);
       signalsCount++;
+      
+      // Добавляем сигнал в общий список
+      totalSignals.push({
+        sheet: name,
+        metric: metricName,
+        value: currentValue,
+        baseline: baseline,
+        delta: deltaPct,
+        rule: rule.RuleId
+      });
     }
   });
   
-  SpreadsheetApp.getUi().alert(`✅ Сканирование завершено: найдено ${signalsCount} сигналов`);
+  // Записываем в журнал изменений
+  if (changesSheet) {
+    const changesDescription = `Сканирование завершено. Найдено ${signalsCount} сигналов в листах: ${dataSheets.join(', ')}. ` +
+      `Источники: ${totalSignals.map(s => `${s.sheet}!${s.metric} (${s.delta.toFixed(1)}%)`).join(', ')}`;
+    
+    changesSheet.appendRow([
+      nowIso,
+      'Сканирование сигналов',
+      changesDescription,
+      signalsCount > 0 ? 'Найдены отклонения' : 'Отклонений не найдено',
+      'AI Агент',
+      'Завершено'
+    ]);
+  }
+  
+  SpreadsheetApp.getUi().alert(`Сканирование завершено: найдено ${signalsCount} сигналов в ${dataSheets.length} листах`);
 }
 
 // ========== БОКОВАЯ ПАНЕЛЬ ==========
@@ -523,7 +579,7 @@ function readAlgorithm(sheet) {
   const headers = values.shift() || [];
   const idx = indexMap_(headers);
   return values
-    .filter(row => String(row[idx.Active] || '').toUpperCase() === 'Y')
+    .filter(row => String(row[idx.Active] || '').toUpperCase() === 'Y') // Фильтруем только активные правила
     .map(row => {
       const params = parseJsonSafe_(row[idx.ConditionParams]);
       return {
@@ -637,6 +693,102 @@ function formatDate_(d) {
     return Utilities.formatDate(parsed, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   } catch(e) {
     return String(d);
+  }
+}
+
+// ========== ГЕНЕРАЦИЯ САММАРИ ==========
+function generateSummary() {
+  const ss = SpreadsheetApp.getActive();
+  
+  try {
+    // Получаем последние сигналы
+    const signalsSheet = ss.getSheetByName('Signals');
+    if (!signalsSheet) {
+      SpreadsheetApp.getUi().alert('Ошибка', 'Лист "Сигналы" не найден', SpreadsheetApp.getUi().ButtonSet.OK);
+      return;
+    }
+    
+    const signalsData = signalsSheet.getDataRange().getValues();
+    if (signalsData.length <= 1) {
+      SpreadsheetApp.getUi().alert('Нет данных', 'Сигналы не найдены', SpreadsheetApp.getUi().ButtonSet.OK);
+      return;
+    }
+    
+    // Фильтруем сигналы за последние 24 часа
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    const recentSignals = signalsData.slice(1).filter(row => {
+      const signalTime = new Date(row[0]);
+      return signalTime >= yesterday;
+    });
+    
+    if (recentSignals.length === 0) {
+      SpreadsheetApp.getUi().alert('Нет новых сигналов', 'За последние 24 часа новых отклонений не найдено', SpreadsheetApp.getUi().ButtonSet.OK);
+      return;
+    }
+    
+    // Генерируем саммари
+    let summary = 'САММАРИ ИЗМЕНЕНИЙ\n\n';
+    summary += `Время анализа: ${now.toLocaleString('ru-RU')}\n`;
+    summary += `Найдено отклонений: ${recentSignals.length}\n\n`;
+    
+    // Группируем по блокам
+    const byBlock = {};
+    recentSignals.forEach(signal => {
+      const block = signal[1];
+      if (!byBlock[block]) byBlock[block] = [];
+      byBlock[block].push(signal);
+    });
+    
+    // Добавляем детали по блокам с источниками
+    Object.keys(byBlock).forEach(block => {
+      summary += `${block.toUpperCase()}:\n`;
+      byBlock[block].forEach(signal => {
+        const metric = signal[2];
+        const change = signal[6];
+        const severity = signal[10];
+        const link = signal[9]; // Ссылка на ячейку
+        const emoji = severity === 'Высокая' ? '🔴' : severity === 'Средняя' ? '🟡' : '🟢';
+        summary += `  ${emoji} ${metric}: ${change}% (${link})\n`;
+      });
+      summary += '\n';
+    });
+    
+    // Добавляем источники данных
+    summary += 'ИСТОЧНИКИ ДАННЫХ:\n';
+    const uniqueSheets = [...new Set(recentSignals.map(s => s[9].split('!')[0]))];
+    uniqueSheets.forEach(sheet => {
+      summary += `- ${sheet}: ${recentSignals.filter(s => s[9].startsWith(sheet)).length} сигналов\n`;
+    });
+    summary += '\n';
+    
+    // Добавляем рекомендации
+    summary += 'РЕКОМЕНДАЦИИ:\n';
+    summary += '1. Проверьте лист "Сигналы" для деталей\n';
+    summary += '2. Просмотрите предложения в листе "Решения"\n';
+    summary += '3. Одобрите или отклоните предложения\n';
+    summary += '4. Проверьте источники данных по ссылкам выше\n';
+    
+    // Показываем саммари
+    SpreadsheetApp.getUi().alert('Саммари изменений', summary, SpreadsheetApp.getUi().ButtonSet.OK);
+    
+    // Записываем в лист "Изменения"
+    const changesSheet = ss.getSheetByName('Изменения');
+    if (changesSheet) {
+      changesSheet.appendRow([
+        now.toISOString(),
+        'Генерация саммари',
+        `Проанализировано ${recentSignals.length} сигналов`,
+        'Успешно',
+        'AI Агент',
+        'Завершено'
+      ]);
+    }
+    
+  } catch (error) {
+    console.error('Ошибка генерации саммари:', error);
+    SpreadsheetApp.getUi().alert('Ошибка', 'Не удалось сгенерировать саммари: ' + error.message, SpreadsheetApp.getUi().ButtonSet.OK);
   }
 }
 
