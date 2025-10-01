@@ -26,6 +26,8 @@ class AugustDailyAnalyzer:
     def __init__(self):
         self.sheet_name = "Август 2025"
         self.anomalies = []
+        self.today_date_str = None  # Дата из таблицы (для отчета)
+        self.yesterday_date_str = None  # Дата из таблицы (для отчета)
         
         # Явно устанавливаем SPREADSHEET_ID если не задан
         if not sheets.spreadsheet_id or sheets.spreadsheet_id == '':
@@ -190,6 +192,13 @@ class AugustDailyAnalyzer:
                     'error': 'Не удалось определить последние две даты'
                 }
             
+            # Сохраняем строковые даты для отчета
+            for col_idx, date_str in date_columns:
+                if col_idx == today_col:
+                    self.today_date_str = date_str
+                if col_idx == yesterday_col:
+                    self.yesterday_date_str = date_str
+            
             # Анализируем каждую строку с метриками
             anomalies = []
             metrics_analyzed = 0
@@ -199,9 +208,18 @@ class AugustDailyAnalyzer:
                     continue
                 
                 # Первая колонка - название метрики
+                # Вторая колонка может содержать товар/категорию
                 metric_name = str(row[0]).strip() if len(row) > 0 else ""
+                product_name = str(row[1]).strip() if len(row) > 1 else ""
+                
                 if not metric_name:
                     continue
+                
+                # Объединяем метрику и товар для более понятного названия
+                if product_name and product_name not in metric_name:
+                    full_metric_name = f"{metric_name} ({product_name})"
+                else:
+                    full_metric_name = metric_name
                 
                 # Получаем значения
                 today_value = self.parse_number(row[today_col]) if today_col < len(row) else None
@@ -233,7 +251,7 @@ class AugustDailyAnalyzer:
                         'row': row_idx,
                         'col_today': today_col,
                         'col_yesterday': yesterday_col,
-                        'metric': metric_name,
+                        'metric': full_metric_name,  # Используем полное имя с товаром
                         'yesterday_value': yesterday_value,
                         'today_value': today_value,
                         'change_pct': round(change_pct, 2),
@@ -243,7 +261,7 @@ class AugustDailyAnalyzer:
                     }
                     
                     anomalies.append(anomaly)
-                    print(f"INFO: Найдено отклонение - {metric_name}: {change_pct:+.1f}% ({category})")
+                    print(f"INFO: Найдено отклонение - {full_metric_name}: {change_pct:+.1f}% ({category})")
             
             self.anomalies = anomalies
             
@@ -331,7 +349,7 @@ class AugustDailyAnalyzer:
             traceback.print_exc()
             return False
     
-    def generate_markdown_report(self) -> str:
+    def generate_markdown_report(self, today_date: str = None, yesterday_date: str = None) -> str:
         """Генерирует MD отчет с найденными отклонениями"""
         if not self.anomalies:
             return "# Ежедневный анализ\n\nОтклонений не найдено ✅"
@@ -348,9 +366,17 @@ class AugustDailyAnalyzer:
             by_category[category].append(anomaly)
         
         # Генерируем отчет
-        today = datetime.now().strftime('%Y-%m-%d')
-        report = f"# Ежедневный анализ: {today}\n\n"
-        report += f"**Лист:** {self.sheet_name}\n\n"
+        analysis_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Формируем заголовок с датами из таблицы
+        if today_date and yesterday_date:
+            date_comparison = f"{today_date} в сравнении с {yesterday_date}"
+        else:
+            date_comparison = analysis_date
+        
+        report = f"# Ежедневный анализ: {date_comparison}\n\n"
+        report += f"**Лист:** {self.sheet_name}\n"
+        report += f"**Дата проверки:** {analysis_date}\n\n"
         report += "---\n\n"
         
         # Критичные отклонения
@@ -410,6 +436,46 @@ class AugustDailyAnalyzer:
         print(f"INFO: Отчет сохранен в {filepath}")
         
         return str(filepath)
+    
+    def commit_and_push_to_github(self, report_path: str) -> str:
+        """Коммитит изменения и пушит в GitHub, возвращает ссылку на отчет"""
+        import subprocess
+        
+        print("\nINFO: Коммит и пуш в GitHub...")
+        
+        try:
+            # Получаем текущую дату для коммита
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            # Git add
+            subprocess.run(['git', 'add', '.'], check=True, capture_output=True)
+            print("  [OK] git add .")
+            
+            # Git commit
+            commit_message = f"Daily report: {today} - {len(self.anomalies)} anomalies found"
+            subprocess.run(['git', 'commit', '-m', commit_message], check=True, capture_output=True)
+            print(f"  [OK] git commit -m '{commit_message}'")
+            
+            # Git push
+            subprocess.run(['git', 'push'], check=True, capture_output=True)
+            print("  [OK] git push")
+            
+            # Формируем ссылку на отчет в GitHub
+            github_repo = "https://github.com/EvgeniyRibakov/demoAIagent"
+            github_report_link = f"{github_repo}/blob/main/{report_path.replace(chr(92), '/')}"
+            
+            print(f"\nSUCCESS: Изменения отправлены в GitHub")
+            print(f"Ссылка на отчет: {github_report_link}")
+            
+            return github_report_link
+            
+        except subprocess.CalledProcessError as e:
+            print(f"WARNING: Ошибка Git: {e}")
+            print("  Возможно, нет изменений для коммита или проблема с аутентификацией")
+            return None
+        except Exception as e:
+            print(f"ERROR: Ошибка при работе с Git: {e}")
+            return None
 
 def main():
     """Основная функция"""
@@ -430,14 +496,30 @@ def main():
     analyzer.highlight_cells()
     
     # Генерируем и сохраняем отчет
-    report = analyzer.generate_markdown_report()
+    report = analyzer.generate_markdown_report(
+        today_date=analyzer.today_date_str,
+        yesterday_date=analyzer.yesterday_date_str
+    )
     report_path = analyzer.save_report(report)
+    
+    # Коммитим и пушим в GitHub
+    github_link = analyzer.commit_and_push_to_github(report_path)
+    
+    # Если успешно запушили, добавляем ссылку в отчет
+    if github_link:
+        # Дописываем ссылку в конец отчета
+        with open(report_path, 'a', encoding='utf-8') as f:
+            f.write(f"\n---\n\n")
+            f.write(f"**📎 Ссылка на отчет в GitHub:** [{report_path}]({github_link})\n")
+        print(f"\nINFO: Ссылка на GitHub добавлена в отчет")
     
     print("\n" + "=" * 60)
     print("АНАЛИЗ ЗАВЕРШЕН")
     print("=" * 60)
     print(f"Найдено отклонений: {len(analyzer.anomalies)}")
     print(f"Отчет сохранен: {report_path}")
+    if github_link:
+        print(f"GitHub ссылка: {github_link}")
     print("\nКритичные отклонения:")
     for anomaly in analyzer.anomalies:
         if anomaly['category'] == 'critical':

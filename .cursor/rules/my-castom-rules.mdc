@@ -15,6 +15,14 @@ alwaysApply: false
   - Google Sheets (данные, подсветка, Decisions)
   - Apps Script (скан, правила, уведомления)
   - Cursor (разработка мини‑агента, правки скриптов)
+  - GitHub (автоматический коммит и пуш отчетов)
+- автоматизация:
+  - Ежедневный запуск в 10:00 МСК
+  - После генерации отчета: git add → git commit → git push
+  - Добавление ссылки на GitHub в конец отчета
+  - Логирование результатов
 - ссылки:
   - Шаблон таблицы: [docs.google.com/spreadsheets](https://docs.google.com/spreadsheets/d/18otXyOlqG4FAbLqyZReCwSPkKLGuhEWsVKFNoxctyvQ/edit?usp=sharing)
+  - GitHub репозиторий: https://github.com/EvgeniyRibakov/demoAIagent
 
+Сразу после подготовки дневного отчёта, коммить и пуш проект на гитхаб и присылай ссылку в отчёте за день на данный отчет на гитхабе
