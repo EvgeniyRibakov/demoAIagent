@@ -532,7 +532,8 @@ function rejectProposal(callDate) {
 
 function clearAllHighlights() {
   const ss = SpreadsheetApp.getActive();
-  CONFIG.dataSheetNames.forEach(name => {
+  const dataSheets = findDataSheets(); // ИСПРАВЛЕНО: используем findDataSheets()
+  dataSheets.forEach(name => {
     const sheet = ss.getSheetByName(name);
     if (sheet) {
       sheet.clearFormat();
